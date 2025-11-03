@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بازی فراوانی - ابراهام هیکس</title>
+    <!-- اضافه شدن لینک PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <!-- تنظیم رنگ نوار بالای مرورگر در حالت PWA -->
+    <meta name="theme-color" content="#161b22"/>
+    
+    <!-- بارگذاری Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- فونت اینتر برای ظاهر بهتر -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        /* تنظیم فونت برای پشتیبانی بهتر از فارسی */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117; /* پس زمینه تیره */
+            color: #c9d1d9; /* متن روشن */
+            direction: rtl;
+        }
+        /* کلاس‌های سفارشی برای زیبایی */
+        .card {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+        .input-field {
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 10px 15px;
+            border-radius: 8px;
+            transition: border-color 0.2s;
+        }
+        .input-field:focus {
+            border-color: #58a6ff;
+            outline: none;
+        }
+        .btn-primary {
+            background-color: #238636;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .btn-primary:hover {
+            background-color: #2ea043;
+            transform: translateY(-1px);
+        }
+        .btn-primary:active {
+            transform: translateY(1px);
+        }
+        /* برای نمایش عدد بزرگ و جداکننده */
+        .money-display {
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+        }
+        /* استایل خاص برای تایمر معکوس */
+        .timer {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #ff7b72; /* رنگ قرمز برای هشدار */
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8 min-h-screen">
+
+    <div id="loading" class="text-center p-8 text-2xl text-blue-400">
+        در حال بارگذاری و اتصال به دیتابیس...
+    </div>
+
+    <div id="app" class="max-w-4xl mx-auto hidden">
+        <h1 class="text-3xl sm:text-4xl font-bold text-center mb-6 text-yellow-400">بازی فراوانی استرهیکس</h1>
+
+        <!-- بخش اطلاعات روز جاری و تایمر -->
+        <div class="card p-6 mb-8 text-center grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+            <div>
+                <p class="text-lg text-gray-400 mb-1">روز</p>
+                <p id="dayDisplay" class="text-5xl money-display text-blue-400">1</p>
+            </div>
+            <div>
+                <p class="text-lg text-gray-400 mb-1">موجودی باقیمانده برای خرج</p>
+                <p id="remainingBalanceDisplay" class="text-4xl money-display text-green-400">1,000,000 تومان</p>
+            </div>
+            <div>
+                <p class="text-lg text-gray-400 mb-1">زمان باقیمانده (پایان روز)</p>
+                <p id="timerDisplay" class="timer text-4xl">00:00:00</p>
+            </div>
+        </div>
+        
+        <!-- پیام وضعیت -->
+        <div id="statusMessage" class="text-center p-3 mb-6 rounded-lg font-medium text-lg hidden"></div>
+
+
+        <!-- بخش ثبت خرید جدید -->
+        <div class="card p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-blue-300">ثبت خرید جدید</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input type="text" id="purchaseName" placeholder="نام کالا/تجربه" class="input-field col-span-1 md:col-span-1">
+                <input type="number" id="purchaseAmount" placeholder="مبلغ خرید (تومان)" class="input-field col-span-1 md:col-span-1" min="1000">
+                
+                <!-- فیلد جدید برای آپلود تصویر به جای لینک -->
+                <label for="purchaseFile" class="input-field col-span-1 md:col-span-1 flex items-center justify-between cursor-pointer">
+                    <span id="fileNameDisplay" class="text-gray-400 truncate">انتخاب تصویر (اختیاری)</span>
+                    <input type="file" id="purchaseFile" accept="image/*" class="hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-400 ml-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4.5-5.5 2.5 3.5 3.5-4.5 4 6z" clip-rule="evenodd" />
+                    </svg>
+                </label>
+            </div>
+
+            <button onclick="addPurchase()" class="btn-primary w-full mt-4 disabled:opacity-50" id="addPurchaseBtn">
+                ثبت خرید و کسر از موجودی
+            </button>
+        </div>
+
+        <!-- بخش لیست خریدهای امروز -->
+        <div class="card p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-purple-300">خریدهای امروز</h2>
+            <div id="dailyPurchasesList" class="space-y-3">
+                <p id="noPurchasesToday" class="text-gray-500">هنوز خریدی ثبت نشده است.</p>
+            </div>
+        </div>
+
+        <!-- بخش تاریخچه بازی -->
+        <div class="card p-6">
+            <h2 class="text-2xl font-semibold mb-4 text-yellow-300">تاریخچه روزهای قبلی</h2>
+            <div id="gameHistoryList" class="space-y-4">
+                <p id="noHistory" class="text-gray-500">تاریخچه روزهای قبلی در اینجا نمایش داده خواهد شد.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Block -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc, updateDoc, collection, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // تنظیمات و متغیرهای سراسری فایربیس
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-abundance-game';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db, auth, userId = null;
+        let gameState = {
+            currentDay: 1,
+            baseAmount: 1000000, // 1 میلیون تومان
+            currentBalance: 1000000,
+            remainingBalance: 1000000,
+            startTime: Date.now(),
+            dailyPurchases: [],
+            history: [] // { day, totalSpent, balance, status: 'Success'/'Fail' }
+        };
+        let timerInterval;
+        let selectedBase64Image = null; // متغیر موقت برای ذخیره Base64 تصویر
+        const MAX_FILE_SIZE = 102400; // حداکثر حجم مجاز فایل: 100KB برای ذخیره در Base64
+
+        // تنظیم سطح لاگ برای دیدن جزئیات فایربیس
+        setLogLevel('Debug');
+
+        // عناصر DOM
+        const appDiv = document.getElementById('app');
+        const loadingDiv = document.getElementById('loading');
+        const dayDisplay = document.getElementById('dayDisplay');
+        const remainingBalanceDisplay = document.getElementById('remainingBalanceDisplay');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const statusMessage = document.getElementById('statusMessage');
+        const dailyPurchasesList = document.getElementById('dailyPurchasesList');
+        const gameHistoryList = document.getElementById('gameHistoryList');
+        const addPurchaseBtn = document.getElementById('addPurchaseBtn');
+        const purchaseFileInput = document.getElementById('purchaseFile');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+
+
+        /**
+         * تابع کمکی برای فرمت‌دهی اعداد به تومان
+         * @param {number} amount 
+         * @returns {string}
+         */
+        const formatMoney = (amount) => {
+            if (typeof amount !== 'number') return '0';
+            return amount.toLocaleString('fa-IR') + ' تومان';
+        };
+
+        /**
+         * تابع محاسبه موجودی کل بر اساس روز جاری
+         * @param {number} day 
+         * @returns {number}
+         */
+        const calculateCurrentBalance = (day) => {
+            // روز اول 1M، روز دوم 2M، روز N، N*1M
+            return day * gameState.baseAmount;
+        };
+        
+        /**
+         * تابع اصلی اعتبارسنجی و آغاز روز جدید
+         */
+        const startNewDay = (isSuccess) => {
+            
+            // ذخیره نتایج روز قبل در تاریخچه
+            const previousDay = gameState.currentDay;
+            const previousBalance = gameState.currentBalance;
+            const previousRemaining = gameState.remainingBalance;
+
+            gameState.history.unshift({
+                day: previousDay,
+                date: new Date(gameState.startTime).toLocaleDateString('fa-IR'),
+                totalSpent: previousBalance - previousRemaining,
+                targetBalance: previousBalance,
+                status: isSuccess ? 'موفقیت‌آمیز' : 'شکست',
+                // در تاریخچه، آرایه خریدهای روز قبل را ذخیره می‌کنیم
+                purchases: gameState.dailyPurchases 
+            });
+
+            if (isSuccess) {
+                // موفقیت: موجودی روز بعد 1 میلیون بیشتر
+                gameState.currentDay += 1;
+                gameState.currentBalance = calculateCurrentBalance(gameState.currentDay);
+                statusMessage.textContent = `تبریک! روز ${previousDay} را با موفقیت پشت سر گذاشتید! موجودی شما برای روز ${gameState.currentDay} به ${formatMoney(gameState.currentBalance)} افزایش یافت.`;
+                statusMessage.className = 'text-center p-3 mb-6 rounded-lg font-medium text-lg bg-green-900 text-green-300';
+            } else {
+                // شکست: بازگشت به روز اول
+                gameState.currentDay = 1;
+                gameState.currentBalance = gameState.baseAmount;
+                statusMessage.textContent = `متأسفانه! نتوانستید کل موجودی روز ${previousDay} را خرج کنید. موجودی شما برای روز ${gameState.currentDay} به ${formatMoney(gameState.currentBalance)} ریست شد. دوباره تلاش کنید!`;
+                statusMessage.className = 'text-center p-3 mb-6 rounded-lg font-medium text-lg bg-red-900 text-red-300';
+            }
+            
+            // تنظیمات روز جدید
+            gameState.remainingBalance = gameState.currentBalance;
+            gameState.startTime = Date.now();
+            gameState.dailyPurchases = [];
+            
+            // نمایش پیام وضعیت
+            statusMessage.classList.remove('hidden');
+            setTimeout(() => statusMessage.classList.add('hidden'), 10000); // 10 ثانیه نمایش
+
+            // ذخیره در دیتابیس
+            saveGameState();
+        };
+
+        /**
+         * بررسی وضعیت بازی در هر بروزرسانی تایمر
+         */
+        const checkGameStatus = () => {
+            const timeElapsed = Date.now() - gameState.startTime;
+            const twentyFourHours = 24 * 60 * 60 * 1000;
+            const timeLeft = twentyFourHours - timeElapsed;
+
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                
+                // زمان به پایان رسیده، وضعیت را بررسی کن
+                const isSuccess = gameState.remainingBalance === 0;
+                startNewDay(isSuccess);
+                
+                // پس از شروع روز جدید، تایمر را دوباره شروع کن
+                startTimer();
+            } else {
+                // بروزرسانی نمایش تایمر
+                const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+                const formatTime = (t) => String(t).padStart(2, '0');
+                timerDisplay.textContent = `${formatTime(hours)}:${formatTime(minutes)}:${formatTime(seconds)}`;
+
+                // تغییر رنگ تایمر در دقایق پایانی
+                if (timeLeft < 3600000) { // کمتر از یک ساعت
+                    timerDisplay.classList.add('text-red-400');
+                    timerDisplay.classList.remove('text-yellow-400', 'text-green-400');
+                } else if (timeLeft < 7200000) { // کمتر از دو ساعت
+                    timerDisplay.classList.add('text-yellow-400');
+                    timerDisplay.classList.remove('text-red-400', 'text-green-400');
+                } else {
+                     timerDisplay.classList.remove('text-red-400', 'text-yellow-400');
+                     timerDisplay.classList.add('text-green-400');
+                }
+            }
+        };
+
+        /**
+         * شروع شمارش معکوس
+         */
+        const startTimer = () => {
+            clearInterval(timerInterval);
+            checkGameStatus(); // اولین بررسی بلافاصله انجام شود
+            timerInterval = setInterval(checkGameStatus, 1000);
+        };
+
+        /**
+         * بروزرسانی UI بر اساس gameState
+         */
+        const updateUI = () => {
+            // 1. اطلاعات روز جاری
+            dayDisplay.textContent = gameState.currentDay.toLocaleString('fa-IR');
+            remainingBalanceDisplay.textContent = formatMoney(gameState.remainingBalance);
+            
+            // 2. وضعیت دکمه خرید
+            const canPurchase = gameState.remainingBalance > 0;
+            addPurchaseBtn.disabled = !canPurchase;
+            addPurchaseBtn.textContent = canPurchase ? 'ثبت خرید و کسر از موجودی' : 'موجودی امروز به اتمام رسید! منتظر پایان زمان باشید.';
+
+            // 3. لیست خریدهای امروز
+            renderDailyPurchases();
+
+            // 4. تاریخچه بازی
+            renderHistory();
+            
+            // 5. شروع تایمر اگر هنوز فعال نیست
+            if (timerInterval) clearInterval(timerInterval);
+            startTimer();
+        };
+
+        /**
+         * رندر لیست خریدهای امروز
+         */
+        const renderDailyPurchases = () => {
+            dailyPurchasesList.innerHTML = '';
+            const purchases = gameState.dailyPurchases;
+            
+            if (purchases.length === 0) {
+                dailyPurchasesList.innerHTML = '<p id="noPurchasesToday" class="text-gray-500">هنوز خریدی ثبت نشده است.</p>';
+                return;
+            }
+
+            purchases.forEach((purchase, index) => {
+                const purchaseItem = document.createElement('div');
+                purchaseItem.className = 'flex items-start p-3 bg-gray-800 rounded-lg shadow-md';
+                // اگر Base64 ذخیره شده، مستقیماً از آن به عنوان data URL استفاده کن
+                const imageSource = purchase.image && purchase.image.startsWith('data:image') 
+                    ? purchase.image 
+                    : 'https://placehold.co/64x64/1f2937/d1d5db?text=تصویر'; // فال بک برای لینک‌های قدیمی یا خالی
+                
+                purchaseItem.innerHTML = `
+                    <div class="flex-shrink-0 w-16 h-16 ml-3 rounded-lg overflow-hidden border border-gray-700">
+                        <img src="${imageSource}" alt="تصویر خرید ${purchase.name}" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='https://placehold.co/64x64/1f2937/d1d5db?text=تصویر';" />
+                    </div>
+                    <div class="flex-grow">
+                        <p class="font-bold text-lg">${purchase.name}</p>
+                        <p class="text-green-400 text-xl money-display">${formatMoney(purchase.amount)}</p>
+                        <p class="text-sm text-gray-500 mt-1">زمان ثبت: ${new Date(purchase.timestamp).toLocaleTimeString('fa-IR')}</p>
+                    </div>
+                `;
+                dailyPurchasesList.appendChild(purchaseItem);
+            });
+        };
+
+        /**
+         * رندر تاریخچه بازی
+         */
+        const renderHistory = () => {
+            gameHistoryList.innerHTML = '';
+            const history = gameState.history;
+            
+            if (history.length === 0) {
+                gameHistoryList.innerHTML = '<p id="noHistory" class="text-gray-500">تاریخچه روزهای قبلی در اینجا نمایش داده خواهد شد.</p>';
+                return;
+            }
+
+            history.forEach((dayData, dayIndex) => {
+                const isSuccess = dayData.status === 'موفقیت‌آمیز';
+                const color = isSuccess ? 'border-green-600' : 'border-red-600';
+                const bgColor = isSuccess ? 'bg-green-900/30' : 'bg-red-900/30';
+
+                const historyItem = document.createElement('div');
+                historyItem.className = `card p-4 border-r-4 ${color} ${bgColor} cursor-pointer`;
+                historyItem.onclick = () => toggleHistoryDetails(dayIndex);
+                
+                let totalSpent = dayData.totalSpent;
+                let targetBalance = dayData.targetBalance;
+                
+                historyItem.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <p class="text-xl font-semibold text-blue-300">روز ${dayData.day.toLocaleString('fa-IR')} (${dayData.date})</p>
+                        <span class="px-3 py-1 rounded-full text-sm font-medium ${isSuccess ? 'bg-green-600' : 'bg-red-600'} text-white">${dayData.status}</span>
+                    </div>
+                    <div class="mt-2 text-gray-400">
+                        <p>موجودی هدف: <span class="text-yellow-300">${formatMoney(targetBalance)}</span></p>
+                        <p>مبلغ خرج شده: <span class="${isSuccess ? 'text-green-400' : 'text-red-400'}">${formatMoney(totalSpent)}</span></p>
+                    </div>
+                    <div id="historyDetails-${dayIndex}" class="mt-4 space-y-2 border-t border-gray-700 pt-3 hidden">
+                        <h4 class="font-bold text-gray-300">جزئیات خریدهای روز ${dayData.day.toLocaleString('fa-IR')}</h4>
+                        <div class="space-y-2" id="historyPurchases-${dayIndex}">
+                            ${dayData.purchases.map(p => {
+                                const imageSource = p.image && p.image.startsWith('data:image') 
+                                    ? p.image 
+                                    : 'https://placehold.co/40x40/1f2937/d1d5db?text=تصویر';
+                                
+                                return `
+                                <div class="flex items-center p-2 bg-gray-700/50 rounded-lg">
+                                    <div class="flex-shrink-0 w-10 h-10 ml-2 rounded-lg overflow-hidden">
+                                        <img src="${imageSource}" alt="تصویر خرید ${p.name}" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='https://placehold.co/40x40/1f2937/d1d5db?text=تصویر';" />
+                                    </div>
+                                    <span class="font-medium text-white">${p.name}</span>
+                                    <span class="mr-auto text-yellow-400">${formatMoney(p.amount)}</span>
+                                </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+                gameHistoryList.appendChild(historyItem);
+            });
+        };
+        
+        /**
+         * نمایش/پنهان کردن جزئیات خرید تاریخچه
+         */
+        window.toggleHistoryDetails = (index) => {
+            const detailsDiv = document.getElementById(`historyDetails-${index}`);
+            detailsDiv.classList.toggle('hidden');
+        };
+
+        /**
+         * تبدیل فایل به Base64
+         */
+        const fileToBase64 = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = (error) => reject(error);
+                reader.readAsDataURL(file);
+            });
+        };
+
+        // Event Listener برای نمایش نام فایل و تبدیل به Base64
+        purchaseFileInput.addEventListener('change', async (event) => {
+            selectedBase64Image = null; // ریست کردن تصویر قبلی
+            fileNameDisplay.textContent = 'انتخاب تصویر (اختیاری)';
+            
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (file.size > MAX_FILE_SIZE) {
+                alertUser(`حجم فایل (بیشتر از ${MAX_FILE_SIZE / 1024} کیلوبایت) زیاد است. تصویر ذخیره نمی‌شود.`, 'bg-red-900 text-red-300');
+                purchaseFileInput.value = ''; // ریست کردن ورودی فایل
+                return;
+            }
+
+            try {
+                selectedBase64Image = await fileToBase64(file);
+                fileNameDisplay.textContent = file.name;
+                alertUser(`تصویر "${file.name}" آماده ثبت شد.`, 'bg-blue-900 text-blue-300');
+            } catch (error) {
+                console.error("Error converting file to Base64:", error);
+                alertUser("خطا در پردازش تصویر. لطفاً مجدداً تلاش کنید.", 'bg-red-900 text-red-300');
+            }
+        });
+
+
+        /**
+         * تابع اضافه کردن خرید جدید (فراخوانی شده از دکمه)
+         */
+        window.addPurchase = () => {
+            const nameInput = document.getElementById('purchaseName');
+            const amountInput = document.getElementById('purchaseAmount');
+
+            const name = nameInput.value.trim();
+            const amount = parseInt(amountInput.value, 10);
+
+            if (!name || isNaN(amount) || amount <= 0) {
+                alertUser('لطفاً نام کالا و مبلغ صحیح را وارد کنید.', 'bg-red-900 text-red-300');
+                return;
+            }
+
+            if (amount > gameState.remainingBalance) {
+                alertUser(`مبلغ ${formatMoney(amount)} بیشتر از موجودی باقیمانده ${formatMoney(gameState.remainingBalance)} است!`, 'bg-red-900 text-red-300');
+                return;
+            }
+
+            // کسر موجودی و ثبت خرید
+            gameState.remainingBalance -= amount;
+            gameState.dailyPurchases.push({
+                name: name,
+                amount: amount,
+                // استفاده از Base64 ذخیره شده موقت
+                image: selectedBase64Image,
+                timestamp: Date.now()
+            });
+
+            // پاک کردن فرم و ریست تصویر
+            nameInput.value = '';
+            amountInput.value = '';
+            purchaseFileInput.value = ''; // ریست فیلد فایل
+            fileNameDisplay.textContent = 'انتخاب تصویر (اختیاری)';
+            selectedBase64Image = null; // ریست متغیر Base64
+
+            // ذخیره و بروزرسانی
+            saveGameState();
+            alertUser(`خرید "${name}" به مبلغ ${formatMoney(amount)} با موفقیت ثبت شد.`, 'bg-green-900 text-green-300');
+        };
+
+        /**
+         * نمایش پیام به کاربر (به جای alert)
+         */
+        const alertUser = (message, className) => {
+            const tempStatus = document.createElement('div');
+            tempStatus.textContent = message;
+            tempStatus.className = `fixed top-4 left-1/2 transform -translate-x-1/2 p-4 rounded-lg font-medium text-center z-50 ${className}`;
+            document.body.appendChild(tempStatus);
+            setTimeout(() => tempStatus.remove(), 4000);
+        }
+
+        /**
+         * تابع ذخیره وضعیت بازی در Firestore
+         */
+        const saveGameState = async () => {
+            if (!userId) return console.error("User not authenticated.");
+            try {
+                const gameDocRef = doc(db, 'artifacts', appId, 'users', userId, 'abundance_game', 'gameState');
+                await setDoc(gameDocRef, gameState);
+                console.log("وضعیت بازی با موفقیت ذخیره شد.");
+            } catch (error) {
+                console.error("خطا در ذخیره وضعیت بازی:", error);
+                alertUser("خطا در ذخیره داده‌ها! اتصال خود را بررسی کنید.", 'bg-red-900 text-red-300');
+            }
+        };
+
+        /**
+         * تابع بارگذاری وضعیت بازی از Firestore و تنظیم onSnapshot
+         */
+        const loadGameState = () => {
+            if (!userId) return;
+            const gameDocRef = doc(db, 'artifacts', appId, 'users', userId, 'abundance_game', 'gameState');
+
+            onSnapshot(gameDocRef, (docSnapshot) => {
+                if (docSnapshot.exists()) {
+                    const loadedState = docSnapshot.data();
+                    
+                    // اطمینان از تبدیل صحیح startTime به عدد
+                    // Firestore Timestamp ها باید به عدد تبدیل شوند
+                    if (loadedState.startTime && typeof loadedState.startTime !== 'number' && loadedState.startTime.toMillis) {
+                        loadedState.startTime = loadedState.startTime.toMillis();
+                    }
+
+                    // جایگزینی وضعیت موجود با وضعیت بارگذاری شده
+                    gameState = { ...gameState, ...loadedState };
+
+                    // بررسی اجباری وضعیت روز بعد از بارگذاری
+                    const timeElapsed = Date.now() - gameState.startTime;
+                    const twentyFourHours = 24 * 60 * 60 * 1000;
+                    
+                    if (timeElapsed >= twentyFourHours) {
+                         // اگر زمان گذشته، باید روز جدید را شروع کنیم
+                         clearInterval(timerInterval); // توقف تایمر قبلی
+                         const isSuccess = gameState.remainingBalance === 0;
+                         startNewDay(isSuccess);
+                    } else {
+                         // فقط بروزرسانی UI
+                         updateUI();
+                    }
+                    
+                    console.log("وضعیت بازی از Firestore بارگذاری شد.");
+                } else {
+                    // اگر سند وجود ندارد، وضعیت اولیه را ذخیره کن
+                    console.log("سند بازی موجود نیست. وضعیت اولیه ذخیره می‌شود.");
+                    saveGameState();
+                    updateUI(); // بروزرسانی اولیه
+                }
+                
+                // پنهان کردن لودینگ و نمایش اپلیکیشن
+                loadingDiv.classList.add('hidden');
+                appDiv.classList.remove('hidden');
+            }, (error) => {
+                console.error("خطا در onSnapshot:", error);
+                loadingDiv.textContent = "خطا در اتصال به دیتابیس. لطفا صفحه را رفرش کنید.";
+            });
+        };
+        
+        /**
+         * راه‌اندازی فایربیس و احراز هویت
+         */
+        const initializeFirebase = async () => {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                let authPromise;
+                if (initialAuthToken) {
+                    authPromise = signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    authPromise = signInAnonymously(auth);
+                }
+
+                await authPromise;
+                
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        console.log("احراز هویت با موفقیت انجام شد. User ID:", userId);
+                        loadGameState();
+                    } else {
+                        userId = null;
+                        console.error("احراز هویت ناموفق.");
+                        loadingDiv.textContent = "خطا در احراز هویت. امکان بازی وجود ندارد.";
+                    }
+                });
+
+                // --- PWA Service Worker Registration ---
+                if ('serviceWorker' in navigator) {
+                    window.addEventListener('load', () => {
+                        navigator.serviceWorker.register('service-worker.js')
+                            .then(registration => {
+                                console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                            })
+                            .catch(error => {
+                                console.log('ServiceWorker registration failed: ', error);
+                            });
+                    });
+                }
+                // --- End PWA Registration ---
+
+            } catch (error) {
+                console.error("خطا در راه‌اندازی فایربیس:", error);
+                loadingDiv.textContent = `خطای راه‌اندازی: ${error.message}`;
+            }
+        };
+
+        // شروع برنامه پس از بارگذاری کامل صفحه
+        window.onload = initializeFirebase;
+    </script>
+</body>
+</html>
